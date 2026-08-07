@@ -84,13 +84,39 @@ class ConfidenceRouter:
         #      action="escalate", priority="high",
         #      requires_human=True, reason="Low confidence — escalating"
 
-        return RoutingDecision(
-            action="auto_send",
-            confidence=confidence,
-            reason="TODO: implement routing logic",
-            priority="low",
-            requires_human=False,
-        )  # TODO: Replace with implementation
+        if action_type in HIGH_RISK_ACTIONS:
+            return RoutingDecision(
+                action="escalate",
+                confidence=confidence,
+                reason=f"High-risk action: {action_type}",
+                priority="high",
+                requires_human=True,
+            )
+
+        if confidence >= self.HIGH_THRESHOLD:
+            return RoutingDecision(
+                action="auto_send",
+                confidence=confidence,
+                reason="High confidence",
+                priority="low",
+                requires_human=False,
+            )
+        elif confidence >= self.MEDIUM_THRESHOLD:
+            return RoutingDecision(
+                action="queue_review",
+                confidence=confidence,
+                reason="Medium confidence — needs review",
+                priority="normal",
+                requires_human=True,
+            )
+        else:
+            return RoutingDecision(
+                action="escalate",
+                confidence=confidence,
+                reason="Low confidence — escalating",
+                priority="high",
+                requires_human=True,
+            )
 
 
 # ============================================================
@@ -111,33 +137,33 @@ class ConfidenceRouter:
 hitl_decision_points = [
     {
         "id": 1,
-        "name": "TODO: Name this decision point",
-        "trigger": "TODO: When does this trigger?",
-        "hitl_model": "TODO: human-in-the-loop / human-on-the-loop / human-as-tiebreaker",
-        "context_needed": "TODO: What does the reviewer need to see?",
-        "example": "TODO: Give a concrete example scenario",
-        "approval_path": "TODO: Explain approve, reject and timeout behavior",
-        "audit_fields": "TODO: List correlation ID, intent, diff and reviewer decision",
+        "name": "High-Value Money Transfer Approval",
+        "trigger": "User requests a transfer > 50,000,000 VND",
+        "hitl_model": "human-in-the-loop",
+        "context_needed": "User account history, transfer destination, anomaly score, intent.",
+        "example": "User wants to transfer 100M VND to a new foreign account.",
+        "approval_path": "Approve -> execute transfer. Reject -> notify user. Timeout (15m) -> fail safe (cancel).",
+        "audit_fields": "correlation_id, intent='transfer', diff='balance-100M', decision='approved'",
     },
     {
         "id": 2,
-        "name": "TODO: Name this decision point",
-        "trigger": "TODO: When does this trigger?",
-        "hitl_model": "TODO: human-in-the-loop / human-on-the-loop / human-as-tiebreaker",
-        "context_needed": "TODO: What does the reviewer need to see?",
-        "example": "TODO: Give a concrete example scenario",
-        "approval_path": "TODO: Explain approve, reject and timeout behavior",
-        "audit_fields": "TODO: List correlation ID, intent, diff and reviewer decision",
+        "name": "Account Deletion / Data Erasure",
+        "trigger": "User requests to permanently close account and delete all data",
+        "hitl_model": "human-in-the-loop",
+        "context_needed": "Account balance, pending transactions, KYC records, authentication method.",
+        "example": "An API request to delete an account with 10M VND remaining.",
+        "approval_path": "Approve -> schedule deletion. Reject -> block. Timeout (24h) -> manual follow-up required.",
+        "audit_fields": "correlation_id, intent='delete_account', diff='status: active->closed', decision='rejected'",
     },
     {
         "id": 3,
-        "name": "TODO: Name this decision point",
-        "trigger": "TODO: When does this trigger?",
-        "hitl_model": "TODO: human-in-the-loop / human-on-the-loop / human-as-tiebreaker",
-        "context_needed": "TODO: What does the reviewer need to see?",
-        "example": "TODO: Give a concrete example scenario",
-        "approval_path": "TODO: Explain approve, reject and timeout behavior",
-        "audit_fields": "TODO: List correlation ID, intent, diff and reviewer decision",
+        "name": "Medium Confidence Email Generation",
+        "trigger": "Agent generates an outbound email to client with confidence 0.75",
+        "hitl_model": "human-on-the-loop",
+        "context_needed": "Original client query, proposed email draft, agent reasoning.",
+        "example": "Agent drafting an email offering a loan to a user complaining about fees.",
+        "approval_path": "Approve -> send email. Reject -> rewrite. Timeout (2h) -> send anyway (HOTL default allow).",
+        "audit_fields": "correlation_id, intent='send_email', diff='draft_content', decision='approved_by_timeout'",
     },
 ]
 
